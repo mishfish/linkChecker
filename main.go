@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"flag"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -11,21 +12,19 @@ import (
 	"golang.org/x/net/html"
 )
 
-func getHTML(url string) []byte {
+func getHTML(url string) (body []byte, e error) {
 	resp, err := http.Get(url)
 	if err != nil {
-		panic(err)
+		return
 	}
 	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
-	return body
+	return ioutil.ReadAll(resp.Body)
 }
-func getLinks(body []byte) []string {
+func getLinks(body []byte) (links []string, e error) {
 	doc, err := html.Parse(bytes.NewReader(body))
 	if err != nil {
 		log.Fatal(err)
 	}
-	var links []string
 	var f func(*html.Node)
 	f = func(n *html.Node) {
 		if n.Type == html.ElementNode && n.Data == "a" {
@@ -41,30 +40,36 @@ func getLinks(body []byte) []string {
 		}
 	}
 	f(doc)
-	return links
+	return links, nil
 }
 
 func check(url string, wg *sync.WaitGroup) {
 	defer wg.Done()
 	resp, err := http.Get(url)
 	if err != nil {
-		fmt.Println(err)
 		return
 	}
 	if resp.StatusCode == 200 {
 		fmt.Println("OK", url)
 	} else {
-		fmt.Println("error", url)
+		fmt.Println("ERR", url)
 	}
 }
 
 func main() {
-	html := getHTML("http://google.com")
-	links := getLinks(html)
+	url := flag.String("url", "", "url adress")
+	flag.Parse()
+	html, err := getHTML(*url)
+	if err != nil {
+		return
+	}
+	links, err := getLinks(html)
+	if err != nil {
+		return
+	}
 	var wg sync.WaitGroup
-	for i, link := range links {
+	for _, link := range links {
 		wg.Add(1)
-		println("start", i, link)
 		go check(link, &wg)
 	}
 	wg.Wait()
