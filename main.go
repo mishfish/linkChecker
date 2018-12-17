@@ -15,7 +15,7 @@ import (
 func getHTML(url string) (body []byte, e error) {
 	resp, err := http.Get(url)
 	if err != nil {
-		return
+		panic(err)
 	}
 	defer resp.Body.Close()
 	return ioutil.ReadAll(resp.Body)
@@ -57,15 +57,26 @@ func check(url string, wg *sync.WaitGroup) {
 }
 
 func main() {
+	var err error
+	var content []byte
 	url := flag.String("url", "", "url adress")
+	filepath := flag.String("filepath", "", "file adress")
 	flag.Parse()
-	html, err := getHTML(*url)
-	if err != nil {
-		return
+	if flag.NArg() != 0 {
+		panic("too many args")
 	}
-	links, err := getLinks(html)
+	//@todo убрать при первой возможности
+	if *url != "" {
+		content, err = getHTML(*url)
+	} else {
+		content, err = ioutil.ReadFile(*filepath)
+	}
 	if err != nil {
-		return
+		panic(err)
+	}
+	links, err := getLinks(content)
+	if err != nil {
+		panic(err)
 	}
 	var wg sync.WaitGroup
 	for _, link := range links {
